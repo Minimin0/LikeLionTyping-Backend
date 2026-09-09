@@ -5,6 +5,7 @@
 - Repository: `Minimin0/LikeLionTyping-Backend`
 - Branch: `feat/backend-core`
 - Implementation commit: `b088fd1`
+- Integration hardening commit: `eedaab8`
 - Java: 21
 - Spring Boot: 3.5.5
 - Build tool: Gradle Wrapper 8.14.3
@@ -15,7 +16,7 @@
 
 ## 3. Database
 
-`participants`, `categories`, `sentences`, `play_passes`, `game_sessions` 테이블을 Flyway V1에서 생성합니다. phone, category code, category/sequence, 참가자별 FREE 소유자에 유니크 제약을 두고 pass·game·ranking 경로에 복합 인덱스를 추가했습니다. `elapsed_ms`는 BIGINT이며 `ddl-auto=validate`입니다.
+`participants`, `participant_creation_lock`, `categories`, `sentences`, `play_passes`, `game_sessions` 테이블을 Flyway V1에서 생성합니다. phone, category code, category/sequence, 참가자별 FREE 소유자에 유니크 제약을 두고 pass·game·ranking 경로에 복합 인덱스를 추가했습니다. `elapsed_ms`는 BIGINT이며 `ddl-auto=validate`입니다.
 
 ## 4. API
 
@@ -38,7 +39,7 @@
 
 ## 6. Transaction & Concurrency
 
-- Identify: participant와 FREE를 한 트랜잭션에서 만들며 phone/FREE 유니크 제약과 중복 race 재조회로 방어합니다.
+- Identify: 신규 생성 구간을 DB 잠금 행으로 직렬화하고 participant와 FREE를 한 트랜잭션에서 만들며 phone/FREE 유니크 제약으로 이중 방어합니다.
 - Start: participant 행을 잠그고 기존 IN_PROGRESS를 검사한 뒤 FREE 우선, 오래된 PAID 순으로 잠가 소비합니다.
 - Complete: GameSession 행 잠금 후 IN_PROGRESS만 COMPLETED로 전이합니다.
 - Paid issue: participant 행 잠금 후 미사용 PAID가 있으면 그대로 반환합니다.
@@ -50,9 +51,9 @@ INVALIDATED 이력은 보존하고 복구한 PlayPass는 새 게임에 재사용
 
 - Command: `./gradlew clean test`
 - Result: PASS
-- Total: 8, Success: 8, Failure: 0, Skipped: 0
+- Total: 11, Success: 11, Failure: 0, Skipped: 0
 - Coverage: identify/free, normalization, nickname mismatch, concurrent identify/start/complete/paid issue, five sentences, pass depletion, personal best, tie ranking, invalidation/restore, recovery, admin auth, public phone exclusion
-- MySQL Testcontainers: BLOCKED because Docker is unavailable on this host; H2 MySQL mode Flyway/JPA integration passed.
+- MySQL 8.0.46 and H2 MySQL mode: PASS. Docker/Testcontainers는 없었으므로 로컬 MySQL 서버에서 같은 suite를 실행했습니다.
 
 ## 8. Release Gate
 
@@ -65,7 +66,7 @@ INVALIDATED 이력은 보존하고 복구한 PlayPass는 새 게임에 재사용
 | public phone exclusion | PASS |
 | invalidation / ranking exclusion / atomic restore | PASS |
 | unauthenticated admin blocked | PASS |
-| Flyway / restart-safe schema / ddl validate | PASS in H2; MySQL verification BLOCKED |
+| Flyway / restart-safe schema / ddl validate | PASS in H2 and MySQL 8.0.46 |
 | no committed secrets | PASS |
 | production categories and 15 sentences | BLOCKED: team input required |
 
@@ -82,7 +83,7 @@ INVALIDATED 이력은 보존하고 복구한 PlayPass는 새 게임에 재사용
 
 - P0: production category names and 15 sentences are required before game traffic.
 - P0: production DB/admin secrets and HTTPS certificate are required before deployment.
-- P1: run the integration suite against MySQL 8 with Testcontainers or a test DB.
+- P1: MySQL suite를 매 PR에서 반복하려면 CI service DB 또는 Testcontainers를 연결해야 합니다.
 - P2: token revocation is not supported; short TTL and secret rotation are sufficient for the single-admin MVP.
 
 ## 11. Frontend Integration Guide

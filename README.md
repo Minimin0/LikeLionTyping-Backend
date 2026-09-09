@@ -50,7 +50,7 @@ Participant, Category, Sentence, PlayPass, GameSession 데이터는 MySQL에 영
 ./gradlew build
 ```
 
-테스트는 H2 MySQL 호환 모드에서 Flyway와 JPA 스키마 검증을 포함합니다. 실제 MySQL 검증은 Docker 또는 테스트용 MySQL이 있는 환경에서 추가 실행해야 합니다.
+테스트는 H2 MySQL 호환 모드에서 Flyway와 JPA 스키마 검증을 포함하며 MySQL 8.0.46에서도 검증되었습니다. datasource 환경변수를 MySQL 테스트 DB로 덮어쓰면 같은 테스트를 재실행할 수 있습니다.
 
 ## API
 
