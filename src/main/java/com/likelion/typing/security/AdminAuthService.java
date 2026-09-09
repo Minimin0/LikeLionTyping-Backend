@@ -25,6 +25,8 @@ public class AdminAuthService {
                             @Value("${app.admin.password-hash}") String passwordHash,
                             @Value("${app.admin.token-secret}") String tokenSecret,
                             @Value("${app.admin.token-ttl-seconds}") long ttlSeconds) {
+        if (!passwordHash.matches("^\\$2[aby]\\$\\d{2}\\$.+"))
+            throw new IllegalStateException("ADMIN_PASSWORD_HASH must be a BCrypt hash");
         if (tokenSecret.length() < 32) throw new IllegalStateException("ADMIN_TOKEN_SECRET must be at least 32 characters");
         this.encoder = encoder;
         this.passwordHash = passwordHash;

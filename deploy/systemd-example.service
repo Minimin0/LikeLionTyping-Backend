@@ -1,0 +1,14 @@
+[Unit]
+Description=LikeLionTyping Backend
+After=network.target
+
+[Service]
+User=likelion-typing
+WorkingDirectory=/opt/likelion-typing
+EnvironmentFile=/etc/likelion-typing/backend.env
+ExecStart=/usr/bin/java -jar /opt/likelion-typing/typing-0.0.1-SNAPSHOT.jar
+Restart=on-failure
+SuccessExitStatus=143
+
+[Install]
+WantedBy=multi-user.target
