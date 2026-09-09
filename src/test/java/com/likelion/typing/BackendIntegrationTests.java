@@ -16,6 +16,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
@@ -53,6 +54,7 @@ class BackendIntegrationTests {
     @Autowired AdminService adminService;
     @Autowired MockMvc mvc;
     @Autowired ObjectMapper json;
+    @Autowired JdbcTemplate jdbc;
 
     @BeforeEach
     void cleanDatabase() {
@@ -76,6 +78,17 @@ class BackendIntegrationTests {
         assertThatThrownBy(() -> identify("other", "010-1234-5678"))
             .isInstanceOfSatisfying(AppException.class,
                 exception -> assertThat(exception.code()).isEqualTo(ErrorCode.NICKNAME_MISMATCH));
+    }
+
+    @Test
+    void databaseRejectsFreePassWithoutItsParticipantOwner() {
+        var participant = participants.save(new Participant("constraint", "01056565656"));
+
+        assertThatThrownBy(() -> jdbc.update("""
+            INSERT INTO play_passes
+                (participant_id, free_participant_id, type, status, created_at, updated_at)
+            VALUES (?, NULL, 'FREE', 'AVAILABLE', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+            """, participant.getId())).isInstanceOf(org.springframework.dao.DataAccessException.class);
     }
 
     @Test
@@ -170,6 +183,35 @@ class BackendIntegrationTests {
 
         assertThat(outcomes).containsExactlyInAnyOrder(true, false);
         assertThat(games.findById(game.gameSessionId()).orElseThrow().getStatus()).isEqualTo(GameSessionStatus.COMPLETED);
+    }
+
+    @Test
+    void elapsedMillisecondsUsesBigint() {
+        var category = category("CH01");
+        var participant = identify("lion", "01012121212");
+        var game = gameService.start(new GameDtos.StartRequest(participant.participantId(), category.getId()));
+
+        var result = gameService.complete(game.gameSessionId(), new GameDtos.CompleteRequest(5_000_000_000L));
+
+        assertThat(result.elapsedMs()).isEqualTo(5_000_000_000L);
+        assertThat(games.findById(game.gameSessionId()).orElseThrow().getElapsedMs()).isEqualTo(5_000_000_000L);
+    }
+
+    @Test
+    void invalidateAndRestoreRollBackTogetherOnConflict() {
+        var category = category("CH01");
+        var participant = identify("lion", "01034343434");
+        var started = gameService.start(new GameDtos.StartRequest(participant.participantId(), category.getId()));
+        gameService.complete(started.gameSessionId(), new GameDtos.CompleteRequest(4_000L));
+        var completed = games.findById(started.gameSessionId()).orElseThrow();
+        games.save(new GameSession(completed.getParticipant(), completed.getCategory(), completed.getPlayPass()));
+
+        assertCode(() -> adminService.invalidate(started.gameSessionId(), new AdminDtos.InvalidateRequest(true)),
+            ErrorCode.INVALID_GAME_STATE);
+
+        assertThat(games.findById(started.gameSessionId()).orElseThrow().getStatus()).isEqualTo(GameSessionStatus.COMPLETED);
+        assertThat(passes.findById(completed.getPlayPass().getId()).orElseThrow().getStatus())
+            .isEqualTo(PlayPassStatus.CONSUMED);
     }
 
     @Test

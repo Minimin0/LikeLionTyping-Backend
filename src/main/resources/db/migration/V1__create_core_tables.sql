@@ -6,11 +6,18 @@ CREATE TABLE participants (
     CONSTRAINT uk_participants_phone UNIQUE (phone)
 );
 
+CREATE TABLE participant_creation_lock (
+    id INT PRIMARY KEY
+);
+
+INSERT INTO participant_creation_lock (id) VALUES (1);
+
 CREATE TABLE categories (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     code VARCHAR(10) NOT NULL,
     name VARCHAR(100) NOT NULL,
-    CONSTRAINT uk_categories_code UNIQUE (code)
+    CONSTRAINT uk_categories_code UNIQUE (code),
+    CONSTRAINT ck_categories_code CHECK (code IN ('CH01', 'CH02', 'CH03'))
 );
 
 CREATE TABLE sentences (
@@ -34,7 +41,7 @@ CREATE TABLE play_passes (
     CONSTRAINT fk_play_passes_free_participant FOREIGN KEY (free_participant_id) REFERENCES participants (id),
     CONSTRAINT uk_play_passes_free_participant UNIQUE (free_participant_id),
     CONSTRAINT ck_play_passes_free_owner CHECK (
-        (type = 'FREE' AND free_participant_id = participant_id)
+        (type = 'FREE' AND free_participant_id IS NOT NULL AND free_participant_id = participant_id)
         OR (type = 'PAID' AND free_participant_id IS NULL)
     )
 );

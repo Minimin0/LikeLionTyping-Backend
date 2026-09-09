@@ -4,7 +4,6 @@ import com.likelion.typing.common.exception.AppException;
 import com.likelion.typing.common.exception.ErrorCode;
 import com.likelion.typing.pass.PlayPassRepository;
 import com.likelion.typing.pass.PlayPassStatus;
-import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -27,12 +26,8 @@ public class ParticipantService {
         var existing = participants.findByPhone(phone);
         if (existing.isPresent()) return response(existing.get(), nickname, false);
 
-        try {
-            return response(creator.create(nickname, phone), nickname, true);
-        } catch (DataIntegrityViolationException race) {
-            var participant = participants.findByPhone(phone).orElseThrow(() -> race);
-            return response(participant, nickname, false);
-        }
+        var creation = creator.create(nickname, phone);
+        return response(creation.participant(), nickname, creation.created());
     }
 
     private ParticipantDtos.IdentifyResponse response(Participant participant, String nickname, boolean isNew) {
