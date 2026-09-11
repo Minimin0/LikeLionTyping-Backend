@@ -1,14 +1,36 @@
 [Unit]
 Description=LikeLionTyping Backend
-After=network.target
+Wants=network-online.target
+After=network-online.target mysql.service
 
 [Service]
+Type=simple
 User=likelion-typing
-WorkingDirectory=/opt/likelion-typing
+Group=likelion-typing
+WorkingDirectory=/opt/likelion-typing/current
 EnvironmentFile=/etc/likelion-typing/backend.env
-ExecStart=/usr/bin/java -jar /opt/likelion-typing/typing-0.0.1-SNAPSHOT.jar
+ExecStart=/usr/bin/java $JAVA_OPTS -jar /opt/likelion-typing/current/app.jar
 Restart=on-failure
+RestartSec=5s
+TimeoutStartSec=90s
+TimeoutStopSec=30s
 SuccessExitStatus=143
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=likelion-typing
+
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=full
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+CapabilityBoundingSet=
+AmbientCapabilities=
+UMask=0077
 
 [Install]
 WantedBy=multi-user.target
