@@ -62,4 +62,15 @@ Participant, Category, Sentence, PlayPass, GameSession 데이터는 MySQL에 영
 
 ## Production Notes
 
-Nginx에서 HTTPS를 종료하고 Spring Boot는 내부 포트로만 노출합니다. 배포 절차와 예시는 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)에 있습니다.
+Nginx에서 HTTPS를 종료하고 Spring Boot와 MySQL은 loopback에서만 수신합니다. 재현 가능한 설치, release, 검증, rollback, 장애 대응 절차는 [docs/DEPLOYMENT.md](docs/DEPLOYMENT.md)에 있습니다.
+
+운영 후보 파일:
+
+- `deploy/backend.env.example`
+- `deploy/systemd-example.service`
+- `deploy/nginx-example.conf`
+- `scripts/production-preflight.sh`
+- `scripts/deploy-backend.sh`
+- `scripts/verify-deployment.sh`
+
+`scripts/smoke-test.sh`는 데이터를 생성하는 명시적 write test입니다. 일반 배포 확인에는 read-only `verify-deployment.sh`를 사용합니다.

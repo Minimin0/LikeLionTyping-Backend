@@ -1,8 +1,14 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
+: "${ALLOW_WRITE_SMOKE_TEST:?set ALLOW_WRITE_SMOKE_TEST=1; this test writes participant/game data}"
 : "${PHONE:?set a fresh test PHONE}"
 : "${CATEGORY_ID:?set CATEGORY_ID with five production sentences}"
+
+if [[ "$ALLOW_WRITE_SMOKE_TEST" != "1" ]]; then
+    echo "ALLOW_WRITE_SMOKE_TEST must be exactly 1" >&2
+    exit 1
+fi
 
 BASE_URL="${BASE_URL:-http://localhost:8080/api}"
 NICKNAME="${NICKNAME:-smoke-test}"
