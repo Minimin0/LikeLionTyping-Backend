@@ -1,8 +1,10 @@
 spring:
+  autoconfigure:
+    exclude: org.springframework.boot.autoconfigure.security.servlet.UserDetailsServiceAutoConfiguration
   datasource:
-    url: ${DB_URL}
-    username: ${DB_USERNAME}
-    password: ${DB_PASSWORD}
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
     driver-class-name: com.mysql.cj.jdbc.Driver
   jpa:
     hibernate:
@@ -11,3 +13,11 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+server:
+  forward-headers-strategy: framework
+app:
+  admin:
+    password-hash: ${ADMIN_PASSWORD_HASH}
+    token-secret: ${ADMIN_TOKEN_SECRET}
+    token-ttl-seconds: ${ADMIN_TOKEN_TTL_SECONDS:28800}
+  allowed-origins: ${ALLOWED_ORIGINS:http://localhost:5173}
