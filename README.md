@@ -42,7 +42,7 @@ MySQL에 `likelion_typing` 데이터베이스와 전용 사용자를 만든 뒤 
 
 Participant, Category, Sentence, PlayPass, GameSession 데이터는 MySQL에 영속화됩니다.
 
-Flyway V1이 core schema를 만들고, Flyway V2가 운영 카테고리 3개 / 문장 15개를 seed합니다. Backend Production DB가 콘텐츠 Source of Truth이며 Frontend가 운영 문장을 별도 결정하지 않습니다.
+Flyway V1이 core schema를 만들고, V2가 운영 카테고리 3개 / 문장 15개를 seed하며, V3가 2026-09-17 승인 문장으로 갱신합니다. Backend Production DB가 콘텐츠 Source of Truth이며 Frontend가 운영 문장을 별도 결정하지 않습니다.
 
 Hibernate는 항상 `ddl-auto=validate`를 사용합니다.
 
@@ -90,7 +90,7 @@ Public API:
 
 이번 Release의 Admin 범위는 다음으로 고정합니다.
 
-- 전화번호 기반 참가자 조회
+- 전화번호 또는 닉네임 기반 참가자 조회
 - PAID 이용권 발급
 - GameSession 무효화 + 필요 시 이용권 복구
 
