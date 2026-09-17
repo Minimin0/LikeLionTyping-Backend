@@ -14,4 +14,9 @@ public class ParticipantController {
     ParticipantDtos.IdentifyResponse identify(@Valid @RequestBody ParticipantDtos.IdentifyRequest request) {
         return service.identify(request);
     }
+
+    @GetMapping("/{id}/play-state")
+    ParticipantDtos.PlayStateResponse playState(@PathVariable Long id) {
+        return service.playState(id);
+    }
 }

@@ -194,6 +194,66 @@ class BackendIntegrationTests {
     }
 
     @Test
+    void startResponseAndPlayStateUseAuthoritativePassState() {
+        var category = category("CH01");
+        var participant = identify("lion", "01051515151");
+        assertThat(participant.availablePassCount()).isOne();
+
+        var first = gameService.start(new GameDtos.StartRequest(participant.participantId(), category.getId()));
+        assertThat(first.resumedExisting()).isFalse();
+        assertThat(first.passConsumed()).isTrue();
+        assertThat(first.availablePassCount()).isZero();
+        assertThat(passes.findByParticipantIdOrderByCreatedAtAsc(participant.participantId()))
+            .filteredOn(pass -> pass.getStatus() == PlayPassStatus.CONSUMED).hasSize(1);
+
+        var resumed = gameService.start(new GameDtos.StartRequest(participant.participantId(), category.getId()));
+        assertThat(resumed.gameSessionId()).isEqualTo(first.gameSessionId());
+        assertThat(resumed.resumedExisting()).isTrue();
+        assertThat(resumed.passConsumed()).isFalse();
+        assertThat(resumed.availablePassCount()).isZero();
+        assertThat(games.count()).isOne();
+        assertThat(passes.findByParticipantIdOrderByCreatedAtAsc(participant.participantId()))
+            .filteredOn(pass -> pass.getStatus() == PlayPassStatus.CONSUMED).hasSize(1);
+
+        var active = participantService.playState(participant.participantId());
+        assertThat(active.availablePassCount()).isZero();
+        assertThat(active.activeGame().gameSessionId()).isEqualTo(first.gameSessionId());
+        assertThat(active.activeGame().categoryId()).isEqualTo(category.getId());
+
+        gameService.complete(first.gameSessionId(), new GameDtos.CompleteRequest(3_000L));
+        var noActive = participantService.playState(participant.participantId());
+        assertThat(noActive.availablePassCount()).isZero();
+        assertThat(noActive.activeGame()).isNull();
+        assertCode(() -> gameService.start(new GameDtos.StartRequest(participant.participantId(), category.getId())),
+            ErrorCode.NO_AVAILABLE_PASS);
+        assertThat(games.count()).isOne();
+
+        adminService.issuePaidPass(participant.participantId(), new AdminDtos.IssuePassRequest(2));
+        assertThat(participantService.playState(participant.participantId()).availablePassCount()).isEqualTo(2);
+        var paid = gameService.start(new GameDtos.StartRequest(participant.participantId(), category.getId()));
+        assertThat(paid.passConsumed()).isTrue();
+        assertThat(paid.resumedExisting()).isFalse();
+        assertThat(paid.availablePassCount()).isEqualTo(1);
+    }
+
+    @Test
+    void freePassIsStillConsumedBeforePaidPass() {
+        var category = category("CH02");
+        var participant = identify("lion", "01061616161");
+        adminService.issuePaidPass(participant.participantId(), new AdminDtos.IssuePassRequest(1));
+
+        var game = gameService.start(new GameDtos.StartRequest(participant.participantId(), category.getId()));
+
+        assertThat(game.availablePassCount()).isOne();
+        assertThat(passes.findByParticipantIdOrderByCreatedAtAsc(participant.participantId()))
+            .filteredOn(pass -> pass.getType() == PlayPassType.FREE)
+            .allMatch(pass -> pass.getStatus() == PlayPassStatus.CONSUMED);
+        assertThat(passes.findByParticipantIdOrderByCreatedAtAsc(participant.participantId()))
+            .filteredOn(pass -> pass.getType() == PlayPassType.PAID)
+            .allMatch(pass -> pass.getStatus() == PlayPassStatus.AVAILABLE);
+    }
+
+    @Test
     void concurrentStartConsumesOnePassAndCreatesOneSession() throws Exception {
         var category = category("CH03");
         var participant = identify("lion", "01077778888");
@@ -343,6 +403,12 @@ class BackendIntegrationTests {
             .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2));
 
         var game = gameService.start(new GameDtos.StartRequest(participant.participantId(), category.getId()));
+        mvc.perform(get("/api/participants/{id}/play-state", participant.participantId()))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.availablePassCount").value(0))
+            .andExpect(jsonPath("$.activeGame.gameSessionId").value(game.gameSessionId()))
+            .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("phone"))))
+            .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("01012340000"))));
         gameService.complete(game.gameSessionId(), new GameDtos.CompleteRequest(2_000L));
         mvc.perform(get("/api/rankings").param("categoryId", category.getId().toString()))
             .andExpect(status().isOk()).andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("phone"))))

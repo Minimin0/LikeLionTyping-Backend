@@ -20,6 +20,18 @@ Response: `{ "participantId": 1, "nickname": "lion", "isNewParticipant": true, "
 
 신규 참가자와 FREE 이용권은 한 트랜잭션에서 생성됩니다. 같은 전화번호와 다른 닉네임은 `409 NICKNAME_MISMATCH`입니다.
 
+### `GET /participants/{id}/play-state`
+
+서버 기준 참가 가능 상태를 반환합니다. 인증 없음. 전화번호, 결제 이력, Admin 전용 정보는 반환하지 않습니다.
+
+Response: `{ "availablePassCount": 0, "activeGame": null }`
+
+진행 중인 경기가 있으면 문장 없이 최소 식별자만 반환합니다.
+
+Response: `{ "availablePassCount": 0, "activeGame": { "gameSessionId": 1, "categoryId": 1 } }`
+
+`availablePassCount`는 AVAILABLE 이용권 수입니다. 0장이면 새 게임 생성은 차단되지만, 이미 이용권이 소비된 `IN_PROGRESS` 경기는 0장이어도 계속할 수 있습니다.
+
 ### `GET /categories`
 
 `code` 오름차순으로 카테고리를 반환합니다. 인증 없음.
@@ -32,9 +44,9 @@ Response: `[{ "id": 1, "code": "CH01", "name": "..." }]`
 
 Request: `{ "participantId": 1, "categoryId": 1 }`
 
-Response: `{ "gameSessionId": 1, "category": { "id": 1, "code": "CH01", "name": "..." }, "sentences": [{ "sequence": 1, "content": "..." }] }`
+Response: `{ "gameSessionId": 1, "category": { "id": 1, "code": "CH01", "name": "..." }, "sentences": [{ "sequence": 1, "content": "..." }], "resumedExisting": false, "passConsumed": true, "availablePassCount": 0 }`
 
-문장이 정확히 5개가 아니면 `409 SENTENCE_CONTENT_INVALID`, 이용권이 없으면 `409 NO_AVAILABLE_PASS`입니다. 같은 참가자의 같은 카테고리 시작 재요청은 기존 진행 세션을 반환하며, 다른 카테고리 진행 중이면 `409 ACTIVE_GAME_EXISTS`입니다. 이용권 선택 순서는 FREE, 생성일이 오래된 PAID입니다.
+새 세션이면 `resumedExisting=false`, `passConsumed=true`, `availablePassCount`는 소비 후 서버 기준 AVAILABLE 이용권 수입니다. 같은 참가자의 같은 카테고리 시작 재요청은 기존 진행 세션을 반환하며 `resumedExisting=true`, `passConsumed=false`, `availablePassCount`는 현재 서버 기준 AVAILABLE 이용권 수입니다. 0 remaining passes does not invalidate a game whose pass was already consumed. 0 remaining passes prevents creation of a NEW game. 문장이 정확히 5개가 아니면 `409 SENTENCE_CONTENT_INVALID`, 이용권이 없으면 `409 NO_AVAILABLE_PASS`입니다. 다른 카테고리 진행 중이면 `409 ACTIVE_GAME_EXISTS`입니다. 이용권 선택 순서는 FREE, 생성일이 오래된 PAID입니다.
 
 ### `POST /game-sessions/{id}/complete`
 

@@ -41,14 +41,17 @@ public class GameService {
         if (active.isPresent()) {
             if (!active.get().getCategory().getId().equals(category.getId()))
                 throw new AppException(ErrorCode.ACTIVE_GAME_EXISTS);
-            return startResponse(active.get(), category);
+            return startResponse(active.get(), category, true, false,
+                passes.countByParticipantIdAndStatus(participant.getId(), PlayPassStatus.AVAILABLE));
         }
 
         var categorySentences = requireSentences(category.getId());
         var pass = firstAvailable(participant.getId());
         pass.consume();
+        passes.flush();
         var game = games.save(new GameSession(participant, category, pass));
-        return startResponse(game, category, categorySentences);
+        return startResponse(game, category, categorySentences, false, true,
+            passes.countByParticipantIdAndStatus(participant.getId(), PlayPassStatus.AVAILABLE));
     }
 
     @Transactional
@@ -92,14 +95,21 @@ public class GameService {
     }
 
     private GameDtos.StartResponse startResponse(GameSession game, Category category) {
-        return startResponse(game, category, requireSentences(category.getId()));
+        return startResponse(game, category, requireSentences(category.getId()), false, false,
+            passes.countByParticipantIdAndStatus(game.getParticipant().getId(), PlayPassStatus.AVAILABLE));
     }
 
-    private GameDtos.StartResponse startResponse(GameSession game, Category category, List<Sentence> sentenceList) {
+    private GameDtos.StartResponse startResponse(GameSession game, Category category, boolean resumedExisting,
+                                                boolean passConsumed, long availablePassCount) {
+        return startResponse(game, category, requireSentences(category.getId()), resumedExisting, passConsumed, availablePassCount);
+    }
+
+    private GameDtos.StartResponse startResponse(GameSession game, Category category, List<Sentence> sentenceList,
+                                                boolean resumedExisting, boolean passConsumed, long availablePassCount) {
         var categoryDto = new CategoryDtos.CategoryResponse(category.getId(), category.getCode(), category.getName());
         var sentenceDtos = sentenceList.stream()
             .map(sentence -> new GameDtos.SentenceResponse(sentence.getSequence(), sentence.getContent())).toList();
-        return new GameDtos.StartResponse(game.getId(), categoryDto, sentenceDtos);
+        return new GameDtos.StartResponse(game.getId(), categoryDto, sentenceDtos, resumedExisting, passConsumed, availablePassCount);
     }
 
     private GameDtos.ResultResponse result(GameSession game, long best, boolean personalBest) {
