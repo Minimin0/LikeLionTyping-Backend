@@ -9,6 +9,8 @@ import com.likelion.typing.security.AdminAuthService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
+
 @Service
 public class AdminService {
     private final AdminAuthService auth;
@@ -28,9 +30,23 @@ public class AdminService {
 
     @Transactional(readOnly = true)
     public AdminDtos.ParticipantResponse findParticipant(String rawPhone) {
-        var phone = rawPhone.replaceAll("[-\\s]", "");
+        var phone = normalizePhone(rawPhone);
         var participant = participants.findByPhone(phone)
             .orElseThrow(() -> new AppException(ErrorCode.PARTICIPANT_NOT_FOUND));
+        return response(participant);
+    }
+
+    @Transactional(readOnly = true)
+    public List<AdminDtos.ParticipantResponse> searchParticipants(String rawQuery) {
+        var query = rawQuery == null ? "" : rawQuery.trim();
+        if (query.isBlank()) throw new AppException(ErrorCode.VALIDATION_ERROR);
+        var matches = looksLikePhone(query)
+            ? participants.findByPhone(normalizePhone(query)).stream().toList()
+            : participants.findByNicknameContainingIgnoreCaseOrderByCreatedAtDesc(query);
+        return matches.stream().map(this::response).toList();
+    }
+
+    private AdminDtos.ParticipantResponse response(com.likelion.typing.participant.Participant participant) {
         var passDtos = passes.findByParticipantIdOrderByCreatedAtAsc(participant.getId()).stream()
             .map(pass -> new AdminDtos.PassResponse(pass.getId(), pass.getType(), pass.getStatus(), pass.getCreatedAt())).toList();
         var gameDtos = games.findByParticipantIdOrderByCreatedAtDesc(participant.getId()).stream()
@@ -38,6 +54,9 @@ public class AdminService {
                 game.getStatus(), game.getElapsedMs(), game.getStartedAt(), game.getCompletedAt())).toList();
         return new AdminDtos.ParticipantResponse(participant.getId(), participant.getNickname(), participant.getPhone(), passDtos, gameDtos);
     }
+
+    private String normalizePhone(String rawPhone) { return rawPhone.replaceAll("[-\\s]", ""); }
+    private boolean looksLikePhone(String query) { return query.matches("[0-9\\-\\s]+"); }
 
     @Transactional
     public AdminDtos.PassResponse issuePaidPass(Long participantId) {

@@ -143,6 +143,38 @@ class BackendIntegrationTests {
     }
 
     @Test
+    void rankingShowsOneBestCompletedRecordPerParticipantAndCategory() {
+        var ch01 = category("CH01");
+        var ch02 = category("CH02");
+        var lion = identify("lion", "01010101010");
+
+        var first = completeStarted(lion.participantId(), ch01.getId(), 35_000L);
+        adminService.issuePaidPass(lion.participantId());
+        completeStarted(lion.participantId(), ch01.getId(), 38_000L);
+        adminService.issuePaidPass(lion.participantId());
+        completeStarted(lion.participantId(), ch01.getId(), 35_000L);
+        adminService.issuePaidPass(lion.participantId());
+        var inProgress = gameService.start(new GameDtos.StartRequest(lion.participantId(), ch01.getId()));
+        adminService.invalidate(inProgress.gameSessionId(), new AdminDtos.InvalidateRequest(true));
+        adminService.issuePaidPass(lion.participantId());
+        completeStarted(lion.participantId(), ch02.getId(), 30_000L);
+
+        var retry = games.findAll().stream()
+            .filter(game -> game.getCategory().getId().equals(ch01.getId()) && Long.valueOf(38_000L).equals(game.getElapsedMs()))
+            .findFirst().orElseThrow();
+
+        assertThat(games.findByParticipantIdOrderByCreatedAtDesc(lion.participantId())).hasSize(5);
+        assertThat(rankingService.rankings(ch01.getId())).extracting("nickname", "elapsedMs")
+            .containsExactly(tuple("lion", 35_000L));
+        assertThat(rankingService.rankings(ch02.getId())).extracting("nickname", "elapsedMs")
+            .containsExactly(tuple("lion", 30_000L));
+        assertThat(gameService.find(retry.getId()))
+            .extracting(GameDtos.ResultResponse::personalBestMs, GameDtos.ResultResponse::personalBest, GameDtos.ResultResponse::rank)
+            .containsExactly(35_000L, false, 1);
+        assertThat(gameService.find(first.gameSessionId()).rank()).isEqualTo(1);
+    }
+
+    @Test
     void startRequiresFiveSentencesAndAnAvailablePass() {
         var emptyCategory = categories.save(new Category("CH02", "test category"));
         var participant = identify("lion", "01055556666");
@@ -244,6 +276,17 @@ class BackendIntegrationTests {
         mvc.perform(get("/api/admin/participants").param("phone", "010-1234-0000")
                 .header("Authorization", "Bearer " + token.asText()))
             .andExpect(status().isOk()).andExpect(jsonPath("$.phone").value("01012340000"));
+        mvc.perform(get("/api/admin/participants").param("query", "010-1234-0000")
+                .header("Authorization", "Bearer " + token.asText()))
+            .andExpect(status().isOk()).andExpect(jsonPath("$[0].phone").value("01012340000"));
+        mvc.perform(get("/api/admin/participants").param("query", "li")
+                .header("Authorization", "Bearer " + token.asText()))
+            .andExpect(status().isOk()).andExpect(jsonPath("$[0].nickname").value("lion"));
+
+        identify("lionel", "01012340001");
+        mvc.perform(get("/api/admin/participants").param("query", "lion")
+                .header("Authorization", "Bearer " + token.asText()))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.length()").value(2));
 
         var game = gameService.start(new GameDtos.StartRequest(participant.participantId(), category.getId()));
         gameService.complete(game.gameSessionId(), new GameDtos.CompleteRequest(2_000L));
@@ -260,6 +303,11 @@ class BackendIntegrationTests {
         var category = categories.save(new Category(code, "test " + code));
         for (int i = 1; i <= 5; i++) sentences.save(new Sentence(category, i, "sentence " + i));
         return category;
+    }
+
+    private GameDtos.ResultResponse completeStarted(Long participantId, Long categoryId, long elapsedMs) {
+        var game = gameService.start(new GameDtos.StartRequest(participantId, categoryId));
+        return gameService.complete(game.gameSessionId(), new GameDtos.CompleteRequest(elapsedMs));
     }
 
     private boolean completeOutcome(Long gameId) {

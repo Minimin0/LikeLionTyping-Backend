@@ -66,9 +66,13 @@ COMPLETED만 포함하며 동률은 같은 공식 순위를 갖습니다. 전화
 
 아래 API는 `Authorization: Bearer <token>`이 필요합니다.
 
-### `GET /admin/participants?phone={phone}`
+### `GET /admin/participants?query={phoneOrNickname}`
 
-전화번호로 참가자, 이용권, 게임 이력을 조회합니다. 운영 목적상 이 응답에만 정규화된 전화번호가 포함됩니다.
+전화번호 또는 닉네임으로 참가자, 이용권, 게임 이력을 조회합니다. 전화번호는 하이픈과 공백을 제거해 조회하며, 닉네임은 부분 검색입니다. 닉네임은 중복될 수 있으므로 배열을 반환합니다. 운영 목적상 이 응답에만 정규화된 전화번호가 포함됩니다.
+
+Response: `[{ "id": 1, "nickname": "lion", "phone": "01012345678", "passes": [], "gameSessions": [] }]`
+
+기존 프론트 호환을 위해 `GET /admin/participants?phone={phone}`도 같은 상세 구조의 단일 참가자 응답으로 유지합니다.
 
 ### `POST /admin/participants/{id}/passes`
 
