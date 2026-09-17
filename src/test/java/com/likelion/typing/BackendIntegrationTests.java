@@ -9,6 +9,7 @@ import com.likelion.typing.common.exception.ErrorCode;
 import com.likelion.typing.game.*;
 import com.likelion.typing.participant.*;
 import com.likelion.typing.pass.*;
+import com.likelion.typing.payment.PaymentRecordRepository;
 import com.likelion.typing.ranking.RankingService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -46,6 +47,7 @@ class BackendIntegrationTests {
     @Autowired ParticipantService participantService;
     @Autowired ParticipantRepository participants;
     @Autowired PlayPassRepository passes;
+    @Autowired PaymentRecordRepository payments;
     @Autowired CategoryRepository categories;
     @Autowired SentenceRepository sentences;
     @Autowired GameSessionRepository games;
@@ -60,6 +62,7 @@ class BackendIntegrationTests {
     void cleanDatabase() {
         games.deleteAll();
         passes.deleteAll();
+        payments.deleteAll();
         sentences.deleteAll();
         categories.deleteAll();
         participants.deleteAll();
@@ -117,15 +120,15 @@ class BackendIntegrationTests {
             .isInstanceOfSatisfying(AppException.class,
                 exception -> assertThat(exception.code()).isEqualTo(ErrorCode.INVALID_GAME_STATE));
 
-        adminService.issuePaidPass(lion.participantId());
-        assertThat(adminService.issuePaidPass(lion.participantId()).id())
-            .isEqualTo(adminService.issuePaidPass(lion.participantId()).id());
+        var issuedOne = adminService.issuePaidPass(lion.participantId(), new AdminDtos.IssuePassRequest(1));
+        assertThat(issuedOne.amountKrw()).isEqualTo(500);
+        assertThat(issuedOne.passes()).hasSize(1);
         var slower = gameService.start(new GameDtos.StartRequest(lion.participantId(), category.getId()));
         assertThat(gameService.complete(slower.gameSessionId(), new GameDtos.CompleteRequest(55_000L)))
             .extracting(GameDtos.ResultResponse::personalBestMs, GameDtos.ResultResponse::personalBest)
             .containsExactly(50_000L, false);
 
-        adminService.issuePaidPass(lion.participantId());
+        adminService.issuePaidPass(lion.participantId(), new AdminDtos.IssuePassRequest(1));
         var fastest = gameService.start(new GameDtos.StartRequest(lion.participantId(), category.getId()));
         gameService.complete(fastest.gameSessionId(), new GameDtos.CompleteRequest(45_000L));
         var tigerGame = gameService.start(new GameDtos.StartRequest(tiger.participantId(), category.getId()));
@@ -134,7 +137,7 @@ class BackendIntegrationTests {
         assertThat(rankingService.rankings(category.getId())).extracting("rank", "elapsedMs")
             .containsExactly(tuple(1, 45_000L), tuple(1, 45_000L));
 
-        var invalidated = adminService.invalidate(fastest.gameSessionId(), new AdminDtos.InvalidateRequest(true));
+        var invalidated = adminService.invalidate(fastest.gameSessionId(), new AdminDtos.InvalidateRequest("operator error", true));
         assertThat(invalidated.gameSessionStatus()).isEqualTo(GameSessionStatus.INVALIDATED);
         assertThat(invalidated.playPassStatus()).isEqualTo(PlayPassStatus.AVAILABLE);
         assertThat(gameService.find(fastest.gameSessionId()).status()).isEqualTo(GameSessionStatus.INVALIDATED);
@@ -149,14 +152,14 @@ class BackendIntegrationTests {
         var lion = identify("lion", "01010101010");
 
         var first = completeStarted(lion.participantId(), ch01.getId(), 35_000L);
-        adminService.issuePaidPass(lion.participantId());
+        adminService.issuePaidPass(lion.participantId(), new AdminDtos.IssuePassRequest(1));
         completeStarted(lion.participantId(), ch01.getId(), 38_000L);
-        adminService.issuePaidPass(lion.participantId());
+        adminService.issuePaidPass(lion.participantId(), new AdminDtos.IssuePassRequest(1));
         completeStarted(lion.participantId(), ch01.getId(), 35_000L);
-        adminService.issuePaidPass(lion.participantId());
+        adminService.issuePaidPass(lion.participantId(), new AdminDtos.IssuePassRequest(1));
         var inProgress = gameService.start(new GameDtos.StartRequest(lion.participantId(), ch01.getId()));
-        adminService.invalidate(inProgress.gameSessionId(), new AdminDtos.InvalidateRequest(true));
-        adminService.issuePaidPass(lion.participantId());
+        adminService.invalidate(inProgress.gameSessionId(), new AdminDtos.InvalidateRequest("restore test", true));
+        adminService.issuePaidPass(lion.participantId(), new AdminDtos.IssuePassRequest(1));
         completeStarted(lion.participantId(), ch02.getId(), 30_000L);
 
         var retry = games.findAll().stream()
@@ -238,7 +241,7 @@ class BackendIntegrationTests {
         var completed = games.findById(started.gameSessionId()).orElseThrow();
         games.save(new GameSession(completed.getParticipant(), completed.getCategory(), completed.getPlayPass()));
 
-        assertCode(() -> adminService.invalidate(started.gameSessionId(), new AdminDtos.InvalidateRequest(true)),
+        assertCode(() -> adminService.invalidate(started.gameSessionId(), new AdminDtos.InvalidateRequest("conflict", true)),
             ErrorCode.INVALID_GAME_STATE);
 
         assertThat(games.findById(started.gameSessionId()).orElseThrow().getStatus()).isEqualTo(GameSessionStatus.COMPLETED);
@@ -247,16 +250,67 @@ class BackendIntegrationTests {
     }
 
     @Test
-    void concurrentPaidIssueReturnsOneAvailablePass() throws Exception {
+    void paidIssueIsCumulativeAndRecordsPayment() throws Exception {
         var participant = identify("lion", "01022223333");
+        var category = category("CH02");
+        completeStarted(participant.participantId(), category.getId(), 4_000L);
 
-        var issued = concurrently(
-            () -> adminService.issuePaidPass(participant.participantId()),
-            () -> adminService.issuePaidPass(participant.participantId()));
+        var first = adminService.issuePaidPass(participant.participantId(), new AdminDtos.IssuePassRequest(1));
+        var second = adminService.issuePaidPass(participant.participantId(), new AdminDtos.IssuePassRequest(2));
 
-        assertThat(issued.stream().map(AdminDtos.PassResponse::id).distinct()).hasSize(1);
+        assertThat(first.availablePaidPassCount()).isEqualTo(1);
+        assertThat(second.availablePaidPassCount()).isEqualTo(3);
+        assertThat(second.amountKrw()).isEqualTo(1_000);
+        assertThat(payments.totalAmountKrwByParticipantId(participant.participantId())).isEqualTo(1_500);
         assertThat(passes.findByParticipantIdOrderByCreatedAtAsc(participant.participantId()))
-            .filteredOn(pass -> pass.getType() == PlayPassType.PAID).hasSize(1);
+            .filteredOn(pass -> pass.getType() == PlayPassType.PAID && pass.getStatus() == PlayPassStatus.AVAILABLE).hasSize(3);
+
+        var game = gameService.start(new GameDtos.StartRequest(participant.participantId(), category.getId()));
+        assertThat(passes.countByParticipantIdAndTypeAndStatus(participant.participantId(), PlayPassType.PAID, PlayPassStatus.AVAILABLE))
+            .isEqualTo(2);
+        gameService.complete(game.gameSessionId(), new GameDtos.CompleteRequest(3_000L));
+    }
+
+    @Test
+    void invalidPaidQuantityIsRejected() {
+        var participant = identify("lion", "01022224444");
+
+        assertCode(() -> adminService.issuePaidPass(participant.participantId(), new AdminDtos.IssuePassRequest(0)),
+            ErrorCode.VALIDATION_ERROR);
+    }
+
+    @Test
+    void dashboardAndParticipantSummaryUseServerAggregates() {
+        var ch01 = category("CH01");
+        var ch02 = category("CH02");
+        var lion = identify("lion", "01020202020");
+        var tiger = identify("tiger", "01020202021");
+        completeStarted(lion.participantId(), ch01.getId(), 5_000L);
+        adminService.issuePaidPass(lion.participantId(), new AdminDtos.IssuePassRequest(2));
+        var paid = completeStarted(lion.participantId(), ch02.getId(), 4_000L);
+        adminService.issuePaidPass(tiger.participantId(), new AdminDtos.IssuePassRequest(1));
+        var invalid = gameService.start(new GameDtos.StartRequest(tiger.participantId(), ch01.getId()));
+        adminService.invalidate(invalid.gameSessionId(), new AdminDtos.InvalidateRequest("bad keyboard", false));
+
+        var dashboard = adminService.dashboard();
+        assertThat(dashboard.totalParticipants()).isEqualTo(2);
+        assertThat(dashboard.totalPlayCount()).isEqualTo(3);
+        assertThat(dashboard.freePlayCount()).isEqualTo(2);
+        assertThat(dashboard.paidPlayCount()).isEqualTo(1);
+        assertThat(dashboard.totalPaymentAmountKrw()).isEqualTo(1_500);
+        assertThat(dashboard.availablePaidPassCount()).isEqualTo(2);
+        assertThat(dashboard.ch01PlayCount()).isEqualTo(2);
+        assertThat(dashboard.ch02PlayCount()).isEqualTo(1);
+        assertThat(dashboard.completedGameCount()).isEqualTo(2);
+        assertThat(dashboard.invalidatedGameCount()).isEqualTo(1);
+
+        var detail = adminService.findParticipant("01020202020");
+        assertThat(detail.summary().totalPaymentAmountKrw()).isEqualTo(1_000);
+        assertThat(detail.summary().completedGameCount()).isEqualTo(2);
+        assertThat(detail.summary().invalidatedGameCount()).isZero();
+        assertThat(detail.summary().bestRecords()).extracting("categoryCode", "elapsedMs")
+            .contains(tuple("CH01", 5_000L), tuple("CH02", 4_000L));
+        assertThat(gameService.find(paid.gameSessionId()).rank()).isEqualTo(1);
     }
 
     @Test

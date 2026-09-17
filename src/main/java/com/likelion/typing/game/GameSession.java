@@ -29,6 +29,7 @@ public class GameSession {
     @Column(nullable = false, updatable = false)
     private Instant startedAt;
     private Instant completedAt;
+    private String invalidationReason;
     @Column(nullable = false, updatable = false)
     private Instant createdAt;
     @Column(nullable = false)
@@ -51,8 +52,9 @@ public class GameSession {
         this.updatedAt = completedAt;
     }
 
-    public void invalidate() {
+    public void invalidate(String reason) {
         this.status = GameSessionStatus.INVALIDATED;
+        this.invalidationReason = reason;
         this.updatedAt = Instant.now();
     }
 }

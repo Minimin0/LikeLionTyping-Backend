@@ -15,10 +15,25 @@ public final class AdminDtos {
     public record LoginResponse(String token, Instant expiresAt) {}
     public record PassResponse(Long id, PlayPassType type, PlayPassStatus status, Instant createdAt) {}
     public record SessionResponse(Long id, Long categoryId, Long playPassId, GameSessionStatus status,
-                                  Long elapsedMs, Instant startedAt, Instant completedAt) {}
+                                  Long elapsedMs, Instant startedAt, Instant completedAt, String invalidationReason) {}
+    public record PaymentResponse(Long id, int quantity, int amountKrw, Instant createdAt) {}
+    public record CategoryBestResponse(String categoryCode, Long elapsedMs) {}
+    public record ParticipantSummary(boolean freeParticipationUsed, long availablePassCount,
+                                     long availablePaidPassCount, long totalPlayCount,
+                                     long completedGameCount, long invalidatedGameCount,
+                                     long totalPaymentAmountKrw, List<CategoryBestResponse> bestRecords) {}
     public record ParticipantResponse(Long id, String nickname, String phone,
-                                      List<PassResponse> passes, List<SessionResponse> gameSessions) {}
-    public record InvalidateRequest(boolean restorePass) {}
+                                      List<PassResponse> passes, List<SessionResponse> gameSessions,
+                                      List<PaymentResponse> payments, ParticipantSummary summary) {}
+    public record IssuePassRequest(Integer quantity) {}
+    public record IssuePassResponse(int quantity, int amountKrw, long availablePaidPassCount,
+                                    PaymentResponse payment, List<PassResponse> passes) {}
+    public record DashboardResponse(long totalParticipants, long totalPlayCount, long freePlayCount,
+                                    long paidPlayCount, long totalPaymentAmountKrw,
+                                    long availablePaidPassCount, long ch01PlayCount,
+                                    long ch02PlayCount, long ch03PlayCount,
+                                    long completedGameCount, long invalidatedGameCount) {}
+    public record InvalidateRequest(String reason, boolean restorePass) {}
     public record InvalidateResponse(Long gameSessionId, GameSessionStatus gameSessionStatus,
                                      Long playPassId, PlayPassStatus playPassStatus) {}
 }
