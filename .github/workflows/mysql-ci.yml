@@ -24,14 +24,6 @@ jobs:
           --health-interval=10s
           --health-timeout=5s
           --health-retries=10
-    env:
-      SPRING_DATASOURCE_URL: jdbc:mysql://127.0.0.1:3306/likelion_typing_test?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false
-      SPRING_DATASOURCE_USERNAME: likelion
-      SPRING_DATASOURCE_PASSWORD: testpass
-      SPRING_DATASOURCE_DRIVER_CLASS_NAME: com.mysql.cj.jdbc.Driver
-      ADMIN_PASSWORD_HASH: $2y$10$fjQFGDB1ZaES0wfHccvPreMX.qfcwLA7Gdh9jMN/uQ3NJrNDQRwSm
-      ADMIN_TOKEN_SECRET: ci-token-secret-at-least-32-characters
-      ALLOWED_ORIGINS: http://localhost:5173
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -41,6 +33,13 @@ jobs:
       - run: chmod +x ./gradlew
       - run: ./gradlew test build
       - name: Start application against MySQL
+        env:
+          SPRING_DATASOURCE_URL: jdbc:mysql://127.0.0.1:3306/likelion_typing_test?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false
+          SPRING_DATASOURCE_USERNAME: likelion
+          SPRING_DATASOURCE_PASSWORD: testpass
+          ADMIN_PASSWORD_HASH: $2y$10$fjQFGDB1ZaES0wfHccvPreMX.qfcwLA7Gdh9jMN/uQ3NJrNDQRwSm
+          ADMIN_TOKEN_SECRET: ci-token-secret-at-least-32-characters
+          ALLOWED_ORIGINS: http://localhost:5173
         run: |
           ./gradlew bootRun > backend.log 2>&1 &
           echo $! > backend.pid
