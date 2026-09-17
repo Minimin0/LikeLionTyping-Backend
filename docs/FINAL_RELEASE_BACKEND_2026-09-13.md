@@ -51,14 +51,14 @@ Frontend는 서버가 반환한 상태를 표시한다.
 Admin API는 아래 범위로 Freeze한다.
 
 1. `POST /api/admin/login`
-2. `GET /api/admin/participants?phone=...`
+2. `GET /api/admin/participants?query=...`
 3. `POST /api/admin/participants/{id}/passes`
 4. `POST /api/admin/game-sessions/{id}/invalidate`
 
 Admin 역할:
 
 - 관리자 인증
-- 전화번호 기반 참가자 조회
+- 전화번호 또는 닉네임 기반 참가자 조회
 - 결제 확인 후 PAID 이용권 발급
 - 문제 GameSession 무효화
 - 요청 시 해당 session이 소비한 이용권 복구
@@ -85,31 +85,31 @@ Admin 역할:
 
 ## 6. Production 콘텐츠 Freeze
 
-Flyway V2가 아래 콘텐츠를 Production에 seed하며 Backend DB가 Source of Truth다.
+Flyway V2가 초기 콘텐츠를 seed하고 V3가 아래 Production 콘텐츠로 갱신하며 Backend DB가 Source of Truth다.
 
 ### CH01 — 성결대 멋사
 
-1. `안녕하세요 저희는 성결대 멋사 입니다`
-2. `프론트엔드, 백엔드, 기획디자인 세 개의 부서가 있습니다`
-3. `상상을 현실로 만드는 개발동아리 입니다`
-4. `함께 공부하고 발전할 수 있습니다`
+1. `안녕하세요 성결대학교 멋쟁이사자처럼입니다!`
+2. `프론트엔드 백엔드 기획디자인 세 부서가 한 팀이 됩니다`
+3. `상상을 코드로 아이디어를 현실로 만드는 개발동아리!`
+4. `함께 고민하고 함께 성장합니다`
 5. `저희의 아기사자가 되어주세요!`
 
 ### CH02 — 멋쟁이사자처럼
 
-1. `멋사에는 약 80개의 대학이 참여합니다`
-2. `대표적인 활동으로는 해커톤이 있습니다`
-3. `해커톤은 제한된 시간동안 집중적으로 기획, 개발하는 대회입니다`
-4. `협력하는 방법을 키울 수 있습니다`
-5. `저희의 아기사자가 되어주세요!`
+1. `전국 약 80개 대학이 함께하는 멋쟁이사자처럼`
+2. `대표 활동은? 바로 해커톤입니다`
+3. `제한된 시간 폭발하는 아이디어!`
+4. `오늘의 버그가 내일의 실력이 됩니다`
+5. `당신의 도전을 기다립니다 아기사자님!`
 
 ### CH03 — 페스티벌 라디오
 
-1. `축제의 밤은 언제나 짧고 반짝인다.`
-2. `스피커가 울리면 모두 같은 편이 된다.`
-3. `조명이 꺼져도 노래는 남는다.`
-4. `오늘의 무대는 우리 모두의 것이다.`
-5. `마지막 곡까지 함께 달려보자.`
+1. `기다리던 동아리 페스티벌 오늘만큼은 마음껏 즐겨볼까요!`
+2. `좋아하는 노래가 들려오면 친구와 함께 신나게 따라 불러보세요.`
+3. `처음 듣는 노래도 이런 날 들으면 왠지 좋아지는 것 같아요!`
+4. `신나는 음악과 웃음소리가 가득한 지금 이 순간을 제대로 즐겨봐요.`
+5. `오늘 함께 들었던 노래와 추억은 오래 남을 거예요!`
 
 띄어쓰기/문장부호까지 원문으로 취급한다.
 
@@ -129,7 +129,7 @@ Public:
 Admin:
 
 - `POST /api/admin/login`
-- `GET /api/admin/participants?phone=...`
+- `GET /api/admin/participants?query=...`
 - `POST /api/admin/participants/{id}/passes`
 - `POST /api/admin/game-sessions/{id}/invalidate`
 

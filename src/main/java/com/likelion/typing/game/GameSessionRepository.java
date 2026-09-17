@@ -12,6 +12,9 @@ public interface GameSessionRepository extends JpaRepository<GameSession, Long> 
     Optional<GameSession> findFirstByParticipantIdAndStatus(Long participantId, GameSessionStatus status);
     List<GameSession> findByParticipantIdOrderByCreatedAtDesc(Long participantId);
     boolean existsByPlayPassIdAndStatusNot(Long playPassId, GameSessionStatus status);
+    long countByStatus(GameSessionStatus status);
+    long countByParticipantId(Long participantId);
+    long countByParticipantIdAndStatus(Long participantId, GameSessionStatus status);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select g from GameSession g join fetch g.participant join fetch g.category join fetch g.playPass where g.id = :id")
@@ -22,4 +25,10 @@ public interface GameSessionRepository extends JpaRepository<GameSession, Long> 
 
     @Query("select g.participant.id, g.participant.nickname, min(g.elapsedMs) from GameSession g where g.category.id = :categoryId and g.status = 'COMPLETED' group by g.participant.id, g.participant.nickname order by min(g.elapsedMs), g.participant.id")
     List<Object[]> findBestRecords(Long categoryId);
+
+    @Query("select count(g) from GameSession g where g.playPass.type = :type")
+    long countByPlayPassType(com.likelion.typing.pass.PlayPassType type);
+
+    @Query("select g.category.code, count(g) from GameSession g group by g.category.code")
+    List<Object[]> countByCategoryCode();
 }

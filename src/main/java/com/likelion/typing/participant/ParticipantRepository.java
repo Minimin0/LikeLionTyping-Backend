@@ -6,9 +6,11 @@ import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Query;
 
 import java.util.Optional;
+import java.util.List;
 
 public interface ParticipantRepository extends JpaRepository<Participant, Long> {
     Optional<Participant> findByPhone(String phone);
+    List<Participant> findByNicknameContainingIgnoreCaseOrderByCreatedAtDesc(String nickname);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("select p from Participant p where p.id = :id")

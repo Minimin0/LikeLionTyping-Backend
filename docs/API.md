@@ -66,14 +66,22 @@ COMPLETED만 포함하며 동률은 같은 공식 순위를 갖습니다. 전화
 
 아래 API는 `Authorization: Bearer <token>`이 필요합니다.
 
-### `GET /admin/participants?phone={phone}`
+### `GET /admin/participants?query={phoneOrNickname}`
 
-전화번호로 참가자, 이용권, 게임 이력을 조회합니다. 운영 목적상 이 응답에만 정규화된 전화번호가 포함됩니다.
+전화번호 또는 닉네임으로 참가자, 이용권, 게임 이력을 조회합니다. 전화번호는 하이픈과 공백을 제거해 조회하며, 닉네임은 부분 검색입니다. 닉네임은 중복될 수 있으므로 배열을 반환합니다. 운영 목적상 이 응답에만 정규화된 전화번호가 포함됩니다.
+
+Response: `[{ "id": 1, "nickname": "lion", "phone": "01012345678", "passes": [], "gameSessions": [], "payments": [], "summary": { ... } }]`
+
+기존 프론트 호환을 위해 `GET /admin/participants?phone={phone}`도 같은 상세 구조의 단일 참가자 응답으로 유지합니다.
+
+### `GET /admin/dashboard`
+
+운영 대시보드 지표를 반환합니다. 결제 합계는 `payment_records` 원장 합계입니다.
 
 ### `POST /admin/participants/{id}/passes`
 
-결제를 현장에서 확인한 뒤 PAID 이용권을 발급합니다. 미사용 PAID가 이미 있으면 같은 이용권을 반환합니다.
+결제를 현장에서 확인한 뒤 `{ "quantity": 2 }`처럼 수량을 전달해 PAID 이용권을 누적 발급합니다. 서버가 `amountKrw = quantity * 500`으로 계산하고, 한 트랜잭션에서 결제 원장과 PAID 이용권을 함께 생성합니다.
 
 ### `POST /admin/game-sessions/{id}/invalidate`
 
-Request: `{ "restorePass": true }`. 게임을 INVALIDATED로 바꾸고, 요청한 경우 다른 정상 경기에 연결되지 않은 소비 이용권을 같은 트랜잭션에서 AVAILABLE로 복구합니다.
+Request: `{ "reason": "키보드 오류", "restorePass": true }`. 게임을 INVALIDATED로 바꾸고, 요청한 경우 다른 정상 경기에 연결되지 않은 소비 이용권을 같은 트랜잭션에서 AVAILABLE로 복구합니다. `restorePass: false`면 기록만 무효화하고 이용권은 복구하지 않습니다.
