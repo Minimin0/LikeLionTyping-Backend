@@ -14,6 +14,9 @@ public class AdminController {
     @PostMapping("/login")
     AdminDtos.LoginResponse login(@Valid @RequestBody AdminDtos.LoginRequest request) { return service.login(request); }
 
+    @GetMapping("/dashboard")
+    AdminDtos.DashboardResponse dashboard() { return service.dashboard(); }
+
     @GetMapping(value = "/participants", params = "phone")
     AdminDtos.ParticipantResponse findParticipant(@RequestParam String phone) { return service.findParticipant(phone); }
 
@@ -23,7 +26,10 @@ public class AdminController {
     }
 
     @PostMapping("/participants/{id}/passes")
-    AdminDtos.PassResponse issuePaidPass(@PathVariable Long id) { return service.issuePaidPass(id); }
+    AdminDtos.IssuePassResponse issuePaidPass(@PathVariable Long id,
+                                              @RequestBody(required = false) AdminDtos.IssuePassRequest request) {
+        return service.issuePaidPass(id, request);
+    }
 
     @PostMapping("/game-sessions/{id}/invalidate")
     AdminDtos.InvalidateResponse invalidate(@PathVariable Long id,

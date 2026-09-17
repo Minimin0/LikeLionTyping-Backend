@@ -10,6 +10,8 @@ import java.util.Optional;
 
 public interface PlayPassRepository extends JpaRepository<PlayPass, Long> {
     long countByParticipantIdAndStatus(Long participantId, PlayPassStatus status);
+    long countByTypeAndStatus(PlayPassType type, PlayPassStatus status);
+    long countByParticipantIdAndTypeAndStatus(Long participantId, PlayPassType type, PlayPassStatus status);
     List<PlayPass> findByParticipantIdOrderByCreatedAtAsc(Long participantId);
     Optional<PlayPass> findFirstByParticipantIdAndTypeAndStatusOrderByCreatedAtAsc(
         Long participantId, PlayPassType type, PlayPassStatus status);

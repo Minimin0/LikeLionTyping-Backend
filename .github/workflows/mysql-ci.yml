@@ -1,0 +1,67 @@
+name: Backend MySQL CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop, main]
+
+jobs:
+  mysql:
+    runs-on: ubuntu-latest
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: likelion_typing_test
+          MYSQL_USER: likelion
+          MYSQL_PASSWORD: testpass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: chmod +x ./gradlew
+      - run: ./gradlew test build
+      - name: Start application against MySQL
+        env:
+          SPRING_DATASOURCE_URL: jdbc:mysql://127.0.0.1:3306/likelion_typing_test?useUnicode=true&characterEncoding=utf8&serverTimezone=UTC&allowPublicKeyRetrieval=true&useSSL=false
+          SPRING_DATASOURCE_USERNAME: likelion
+          SPRING_DATASOURCE_PASSWORD: testpass
+          ADMIN_PASSWORD_HASH: $2y$10$fjQFGDB1ZaES0wfHccvPreMX.qfcwLA7Gdh9jMN/uQ3NJrNDQRwSm
+          ADMIN_TOKEN_SECRET: ci-token-secret-at-least-32-characters
+          ALLOWED_ORIGINS: http://localhost:5173
+        run: |
+          ./gradlew bootRun > backend.log 2>&1 &
+          echo $! > backend.pid
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:8080/api/categories >/dev/null; then
+              exit 0
+            fi
+            sleep 2
+          done
+          cat backend.log
+          exit 1
+      - name: Verify Flyway versions
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y mysql-client
+          versions="$(mysql -h 127.0.0.1 -ulikelion -ptestpass -N -e "SELECT version FROM likelion_typing_test.flyway_schema_history WHERE success = 1 ORDER BY installed_rank")"
+          printf '%s\n' "$versions"
+          test "$versions" = $'1\n2\n3\n4'
+      - name: Stop application
+        if: always()
+        run: |
+          if [ -f backend.pid ]; then kill "$(cat backend.pid)" || true; fi
+      - name: Print backend logs on failure
+        if: failure()
+        run: cat backend.log || true
