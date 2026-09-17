@@ -17,4 +17,7 @@ public final class ParticipantDtos {
         boolean isNewParticipant,
         long availablePassCount
     ) {}
+
+    public record PlayStateResponse(long availablePassCount, ActiveGameResponse activeGame) {}
+    public record ActiveGameResponse(Long gameSessionId, Long categoryId) {}
 }
