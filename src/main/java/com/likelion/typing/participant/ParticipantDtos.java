@@ -1,6 +1,7 @@
 package com.likelion.typing.participant;
 
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 public final class ParticipantDtos {
@@ -8,7 +9,8 @@ public final class ParticipantDtos {
 
     public record IdentifyRequest(
         @NotBlank @Size(max = 40) String nickname,
-        @NotBlank @Size(max = 40) String phone
+        @NotBlank @Size(max = 40)
+        @Pattern(regexp = "^010[- ]?\\d{4}[- ]?\\d{4}$") String phone
     ) {}
 
     public record IdentifyResponse(
