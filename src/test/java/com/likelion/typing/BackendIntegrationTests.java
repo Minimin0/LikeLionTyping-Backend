@@ -84,6 +84,21 @@ class BackendIntegrationTests {
     }
 
     @Test
+    void invalidParticipantPhoneIsRejectedByServiceAndHttp() throws Exception {
+        for (var phone : List.of("0101234567", "010-123-4567", "01112345678", "010123456789")) {
+            assertCode(() -> identify("bad", phone), ErrorCode.VALIDATION_ERROR);
+
+            mvc.perform(post("/api/participants/identify")
+                    .contentType(APPLICATION_JSON)
+                    .content("{\"nickname\":\"bad\",\"phone\":\"" + phone + "\"}"))
+                .andExpect(status().isBadRequest());
+        }
+
+        assertThat(participants.count()).isZero();
+        assertThat(passes.count()).isZero();
+    }
+
+    @Test
     void databaseRejectsFreePassWithoutItsParticipantOwner() {
         var participant = participants.save(new Participant("constraint", "01056565656"));
 
