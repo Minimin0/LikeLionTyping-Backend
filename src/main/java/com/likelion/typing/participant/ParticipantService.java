@@ -27,6 +27,7 @@ public class ParticipantService {
         var phone = request.phone().replaceAll("[-\\s]", "");
         var nickname = request.nickname().trim();
         if (phone.isBlank() || nickname.isBlank()) throw new AppException(ErrorCode.VALIDATION_ERROR);
+        if (!phone.matches("^010\\d{8}$")) throw new AppException(ErrorCode.VALIDATION_ERROR);
 
         var existing = participants.findByPhone(phone);
         if (existing.isPresent()) return response(existing.get(), nickname, false);
