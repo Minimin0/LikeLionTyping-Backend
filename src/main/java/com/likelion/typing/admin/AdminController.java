@@ -17,6 +17,9 @@ public class AdminController {
     @GetMapping("/dashboard")
     AdminDtos.DashboardResponse dashboard() { return service.dashboard(); }
 
+    @GetMapping("/payments")
+    AdminDtos.PaymentHistoryResponse payments() { return service.paymentHistory(); }
+
     @GetMapping(value = "/participants", params = "phone")
     AdminDtos.ParticipantResponse findParticipant(@RequestParam String phone) { return service.findParticipant(phone); }
 

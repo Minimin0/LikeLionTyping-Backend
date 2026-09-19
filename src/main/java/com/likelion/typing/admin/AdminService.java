@@ -54,6 +54,23 @@ public class AdminService {
     }
 
     @Transactional(readOnly = true)
+    public AdminDtos.PaymentHistoryResponse paymentHistory() {
+        var history = payments.findAllWithParticipantOrderByCreatedAtDesc();
+        return new AdminDtos.PaymentHistoryResponse(
+            history.stream().mapToLong(PaymentRecord::getAmountKrw).sum(),
+            history.size(),
+            history.stream().mapToLong(PaymentRecord::getQuantity).sum(),
+            history.stream().map(payment -> new AdminDtos.PaymentHistoryItemResponse(
+                payment.getId(),
+                payment.getParticipant().getId(),
+                payment.getParticipant().getNickname(),
+                payment.getParticipant().getPhone(),
+                payment.getQuantity(),
+                payment.getAmountKrw(),
+                payment.getCreatedAt())).toList());
+    }
+
+    @Transactional(readOnly = true)
     public AdminDtos.ParticipantResponse findParticipant(String rawPhone) {
         var phone = normalizePhone(rawPhone);
         var participant = participants.findByPhone(phone)
