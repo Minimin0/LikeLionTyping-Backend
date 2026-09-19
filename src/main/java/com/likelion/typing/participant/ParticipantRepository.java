@@ -10,6 +10,7 @@ import java.util.List;
 
 public interface ParticipantRepository extends JpaRepository<Participant, Long> {
     Optional<Participant> findByPhone(String phone);
+    List<Participant> findAllByOrderByCreatedAtDescIdDesc();
     List<Participant> findByNicknameContainingIgnoreCaseOrderByCreatedAtDesc(String nickname);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)

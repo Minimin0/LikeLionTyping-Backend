@@ -71,6 +71,18 @@ public class AdminService {
     }
 
     @Transactional(readOnly = true)
+    public AdminDtos.ParticipantHistoryResponse participantHistory() {
+        var history = participants.findAllByOrderByCreatedAtDescIdDesc();
+        return new AdminDtos.ParticipantHistoryResponse(
+            history.size(),
+            history.stream().map(participant -> new AdminDtos.ParticipantHistoryItemResponse(
+                participant.getId(),
+                participant.getNickname(),
+                participant.getPhone(),
+                participant.getCreatedAt())).toList());
+    }
+
+    @Transactional(readOnly = true)
     public AdminDtos.ParticipantResponse findParticipant(String rawPhone) {
         var phone = normalizePhone(rawPhone);
         var participant = participants.findByPhone(phone)
