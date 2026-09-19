@@ -389,11 +389,53 @@ class BackendIntegrationTests {
     }
 
     @Test
+    void adminPaymentHistorySummarizesPaymentsAndSortsNewestFirst() throws Exception {
+        assertThat(adminService.paymentHistory())
+            .extracting(AdminDtos.PaymentHistoryResponse::totalPaymentAmountKrw,
+                AdminDtos.PaymentHistoryResponse::totalPaymentCount,
+                AdminDtos.PaymentHistoryResponse::totalPaidPassQuantity,
+                response -> response.payments().size())
+            .containsExactly(0L, 0L, 0L, 0);
+
+        var lion = identify("lion", "01030303030");
+        var tiger = identify("tiger", "01030303031");
+        adminService.issuePaidPass(lion.participantId(), new AdminDtos.IssuePassRequest(1));
+        Thread.sleep(2);
+        adminService.issuePaidPass(tiger.participantId(), new AdminDtos.IssuePassRequest(3));
+
+        var history = adminService.paymentHistory();
+        assertThat(history.totalPaymentAmountKrw()).isEqualTo(2_000);
+        assertThat(history.totalPaymentCount()).isEqualTo(2);
+        assertThat(history.totalPaidPassQuantity()).isEqualTo(4);
+        assertThat(history.totalPaymentAmountKrw()).isEqualTo(adminService.dashboard().totalPaymentAmountKrw());
+        assertThat(history.payments()).extracting("nickname", "phone", "quantity", "amountKrw")
+            .containsExactly(
+                tuple("tiger", "01030303031", 3, 1_500),
+                tuple("lion", "01030303030", 1, 500));
+
+        mvc.perform(get("/api/admin/payments"))
+            .andExpect(status().isForbidden());
+
+        var login = mvc.perform(post("/api/admin/login").contentType(APPLICATION_JSON)
+                .content("{\"password\":\"" + ADMIN_PASSWORD + "\"}"))
+            .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        var token = json.readTree(login).get("token").asText();
+        mvc.perform(get("/api/admin/payments").header("Authorization", "Bearer " + token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalPaymentAmountKrw").value(2_000))
+            .andExpect(jsonPath("$.totalPaymentCount").value(2))
+            .andExpect(jsonPath("$.totalPaidPassQuantity").value(4))
+            .andExpect(jsonPath("$.payments[0].nickname").value("tiger"));
+    }
+
+    @Test
     void adminEndpointsRequireAuthAndNeverExposePhonePublicly() throws Exception {
         var category = category("CH01");
         var participant = identify("lion", "01012340000");
 
         mvc.perform(get("/api/admin/participants").param("phone", "01012340000"))
+            .andExpect(status().isForbidden());
+        mvc.perform(get("/api/admin/payments"))
             .andExpect(status().isForbidden());
         mvc.perform(post("/api/admin/login").contentType(APPLICATION_JSON).content("{\"password\":\"wrong\"}"))
             .andExpect(status().isUnauthorized()).andExpect(jsonPath("$.code").value("ADMIN_UNAUTHORIZED"));

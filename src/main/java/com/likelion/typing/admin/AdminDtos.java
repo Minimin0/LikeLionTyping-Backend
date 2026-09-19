@@ -17,6 +17,11 @@ public final class AdminDtos {
     public record SessionResponse(Long id, Long categoryId, Long playPassId, GameSessionStatus status,
                                   Long elapsedMs, Instant startedAt, Instant completedAt, String invalidationReason) {}
     public record PaymentResponse(Long id, int quantity, int amountKrw, Instant createdAt) {}
+    public record PaymentHistoryItemResponse(Long id, Long participantId, String nickname, String phone,
+                                             int quantity, int amountKrw, Instant createdAt) {}
+    public record PaymentHistoryResponse(long totalPaymentAmountKrw, long totalPaymentCount,
+                                         long totalPaidPassQuantity,
+                                         List<PaymentHistoryItemResponse> payments) {}
     public record CategoryBestResponse(String categoryCode, Long elapsedMs) {}
     public record ParticipantSummary(boolean freeParticipationUsed, long availablePassCount,
                                      long availablePaidPassCount, long totalPlayCount,
