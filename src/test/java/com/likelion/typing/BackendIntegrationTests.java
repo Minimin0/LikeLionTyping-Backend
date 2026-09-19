@@ -472,8 +472,49 @@ class BackendIntegrationTests {
             .andExpect(content().string(org.hamcrest.Matchers.not(org.hamcrest.Matchers.containsString("01012340000"))));
     }
 
+    @Test
+    void adminParticipantHistoryRequiresAuthAndReturnsLatestParticipantsOnly() throws Exception {
+        mvc.perform(get("/api/admin/participants/all"))
+            .andExpect(status().isForbidden());
+
+        var token = adminToken();
+        mvc.perform(get("/api/admin/participants/all").header("Authorization", "Bearer " + token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalParticipants").value(0))
+            .andExpect(jsonPath("$.participants.length()").value(0));
+
+        var lion = identify("lion", "01011112222");
+        Thread.sleep(2);
+        var tiger = identify("tiger", "01033334444");
+
+        mvc.perform(get("/api/admin/participants/all").header("Authorization", "Bearer " + token))
+            .andExpect(status().isOk())
+            .andExpect(jsonPath("$.totalParticipants").value(2))
+            .andExpect(jsonPath("$.participants[0].id").value(tiger.participantId()))
+            .andExpect(jsonPath("$.participants[0].nickname").value("tiger"))
+            .andExpect(jsonPath("$.participants[0].phone").value("01033334444"))
+            .andExpect(jsonPath("$.participants[0].createdAt").exists())
+            .andExpect(jsonPath("$.participants[1].id").value(lion.participantId()))
+            .andExpect(jsonPath("$.participants[1].nickname").value("lion"))
+            .andExpect(jsonPath("$.participants[1].phone").value("01011112222"));
+
+        mvc.perform(get("/api/admin/participants").param("phone", "010-1111-2222")
+                .header("Authorization", "Bearer " + token))
+            .andExpect(status().isOk()).andExpect(jsonPath("$.nickname").value("lion"));
+        mvc.perform(get("/api/admin/participants").param("query", "tig")
+                .header("Authorization", "Bearer " + token))
+            .andExpect(status().isOk()).andExpect(jsonPath("$[0].nickname").value("tiger"));
+    }
+
     private ParticipantDtos.IdentifyResponse identify(String nickname, String phone) {
         return participantService.identify(new ParticipantDtos.IdentifyRequest(nickname, phone));
+    }
+
+    private String adminToken() throws Exception {
+        var login = mvc.perform(post("/api/admin/login").contentType(APPLICATION_JSON)
+                .content("{\"password\":\"" + ADMIN_PASSWORD + "\"}"))
+            .andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
+        return json.readTree(login).get("token").asText();
     }
 
     private Category category(String code) {

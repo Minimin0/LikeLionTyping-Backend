@@ -20,6 +20,9 @@ public class AdminController {
     @GetMapping("/payments")
     AdminDtos.PaymentHistoryResponse payments() { return service.paymentHistory(); }
 
+    @GetMapping("/participants/all")
+    AdminDtos.ParticipantHistoryResponse participantHistory() { return service.participantHistory(); }
+
     @GetMapping(value = "/participants", params = "phone")
     AdminDtos.ParticipantResponse findParticipant(@RequestParam String phone) { return service.findParticipant(phone); }
 

@@ -22,6 +22,9 @@ public final class AdminDtos {
     public record PaymentHistoryResponse(long totalPaymentAmountKrw, long totalPaymentCount,
                                          long totalPaidPassQuantity,
                                          List<PaymentHistoryItemResponse> payments) {}
+    public record ParticipantHistoryItemResponse(Long id, String nickname, String phone, Instant createdAt) {}
+    public record ParticipantHistoryResponse(long totalParticipants,
+                                             List<ParticipantHistoryItemResponse> participants) {}
     public record CategoryBestResponse(String categoryCode, Long elapsedMs) {}
     public record ParticipantSummary(boolean freeParticipationUsed, long availablePassCount,
                                      long availablePaidPassCount, long totalPlayCount,
